@@ -6,9 +6,12 @@ import com.googlecode.tesseract.android.TessBaseAPI
 import java.io.File
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
+import kotlin.math.min
 
 object LocalOcr {
     private var api: TessBaseAPI? = null
+    private const val WL = "tessedit_char_whitelist"
+    private const val DIGIT_SET = "0123456789٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹ -"
 
     @Synchronized
     private fun get(ctx: Context): TessBaseAPI? {
@@ -29,7 +32,6 @@ object LocalOcr {
             t.recycle()
             return null
         }
-        t.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
         api = t
         return t
     }
@@ -42,14 +44,27 @@ object LocalOcr {
     fun read(ctx: Context, src: Bitmap): String? {
         val t = get(ctx) ?: return null
         val bmp = prep(src)
-        t.setImage(bmp)
-        val text = t.getUTF8Text() ?: ""
-        bmp.recycle()
-        return Digits.extract(text)
+        try {
+            // مرحلة 1: أرقام فقط
+            t.setVariable(WL, DIGIT_SET)
+            t.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
+            t.setImage(bmp)
+            Digits.extract(t.getUTF8Text() ?: "")?.let { return it }
+
+            // مرحلة 2: قراءة عادية بدون قيود
+            t.setVariable(WL, "")
+            t.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SPARSE_TEXT)
+            t.setImage(bmp)
+            return Digits.extract(t.getUTF8Text() ?: "")
+        } finally {
+            bmp.recycle()
+        }
     }
 
     private fun prep(src: Bitmap): Bitmap {
-        val scale = if (max(src.width, src.height) < 800) 2f else 1f
+        // نكبّر الصور الصغيرة حتى يصير ارتفاعها ~150 بكسل على الأقل
+        val minSide = min(src.width, src.height).coerceAtLeast(1)
+        val scale = if (max(src.width, src.height) < 1200) (150f / minSide).coerceIn(1f, 4f) else 1f
         val w = (src.width * scale).toInt()
         val h = (src.height * scale).toInt()
         // هل الخلفية داكنة؟ نقلب الألوان لأن Tesseract يفضل نصاً داكناً على خلفية فاتحة
