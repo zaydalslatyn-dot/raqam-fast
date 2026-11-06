@@ -18,8 +18,8 @@ jobs:
       - name: Download language data
         run: |
           mkdir -p app/src/main/assets
-          curl -L --fail -o app/src/main/assets/ara.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata
-          curl -L --fail -o app/src/main/assets/eng.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+          curl -L --fail -o app/src/main/assets/ara.traineddata https://github.com/tesseract-ocr/tessdata_best/raw/main/ara.traineddata
+          curl -L --fail -o app/src/main/assets/eng.traineddata https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata
       - name: Build
         run: gradle assembleDebug -POCR_API_KEY="${{ secrets.OCR_API_KEY }}"
       - uses: actions/upload-artifact@v4
